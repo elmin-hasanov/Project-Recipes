@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabaseClient } from '../lib/supabaseClient';
 import RecipeCard from '../components/RecipeCard';
-import { Recipe } from '../types/supabase-types'; // ggf. anpassen
+import { Recipe } from '../types/supabase-types';
 
 const Home = () => {
   const [popularRecipes, setPopularRecipes] = useState<Recipe[]>([]);
@@ -40,7 +40,7 @@ const Home = () => {
   };
 
   return (
-    <div>
+    <div className="flex flex-col-reverse md:flex-row gap-4">
       <input
         type="text"
         placeholder="Rezept suchen..."
