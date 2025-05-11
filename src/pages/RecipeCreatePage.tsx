@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabaseClient } from '../lib/supabaseClient';
+import { useUser } from '../contexts/UserContext';
 
 interface Category {
   id: string;
@@ -17,6 +18,7 @@ interface Ingredient {
 const RecipeCreatePage = () => {
   const { id: recipeId } = useParams();
   const navigate = useNavigate();
+  const { user } = useUser();
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -51,6 +53,12 @@ const RecipeCreatePage = () => {
         .eq('recipe_id', recipeId);
 
       if (recipe) {
+        if (recipe.user_id !== user?.id) {
+          alert('Du darfst dieses Rezept nicht bearbeiten.');
+          navigate('/');
+          return;
+        }
+
         setName(recipe.name);
         setDescription(recipe.description);
         setServings(recipe.servings);
@@ -64,7 +72,7 @@ const RecipeCreatePage = () => {
     };
 
     fetchRecipeAndIngredients();
-  }, [recipeId]);
+  }, [recipeId, user, navigate]);
 
   const handleIngredientChange = (
     index: number,
@@ -122,6 +130,7 @@ const RecipeCreatePage = () => {
             servings,
             instructions,
             category_id: categoryId,
+            user_id: user?.id, // neu
           },
         ])
         .select()

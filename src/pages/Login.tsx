@@ -1,10 +1,12 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabaseClient } from '../lib/supabaseClient';
 
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const navigate = useNavigate();
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -18,7 +20,17 @@ const Login = () => {
     if (error) {
       setErrorMessage('Login fehlgeschlagen: ' + error.message);
     } else {
-      alert('Erfolgreich eingeloggt!');
+      navigate('/');
+    }
+  };
+
+  const handleOAuthLogin = async (provider: 'github' | 'google') => {
+    const { error } = await supabaseClient.auth.signInWithOAuth({
+      provider,
+    });
+
+    if (error) {
+      setErrorMessage(`Fehler bei ${provider} Login: ` + error.message);
     }
   };
 
@@ -26,6 +38,7 @@ const Login = () => {
     <div className="max-w-md mx-auto p-4">
       <h1 className="text-2xl font-bold mb-4">Login</h1>
       {errorMessage && <p className="text-red-500">{errorMessage}</p>}
+
       <form onSubmit={handleLogin} className="space-y-4">
         <input
           type="email"
@@ -50,6 +63,29 @@ const Login = () => {
           Einloggen
         </button>
       </form>
+
+      <hr className="my-6" />
+
+      <button
+        onClick={() => handleOAuthLogin('google')}
+        className="w-full bg-red-500 text-white p-2 rounded mb-2"
+      >
+        Mit Google einloggen
+      </button>
+
+      <button
+        onClick={() => handleOAuthLogin('github')}
+        className="w-full bg-gray-800 text-white p-2 rounded"
+      >
+        Mit GitHub einloggen
+      </button>
+
+      <p className="mt-4">
+        Noch kein Konto?{' '}
+        <a href="/signup" className="text-blue-500">
+          Registrieren
+        </a>
+      </p>
     </div>
   );
 };

@@ -20,7 +20,7 @@ export default function Signup() {
       email,
       password,
       options: {
-        user_metadata: {
+        data: {
           first_name: firstName,
           last_name: lastName,
         },
@@ -35,9 +35,20 @@ export default function Signup() {
     }
   };
 
+  const handleOAuthLogin = async (provider: 'google' | 'github') => {
+    const { error } = await supabaseClient.auth.signInWithOAuth({
+      provider,
+    });
+
+    if (error) {
+      setError('OAuth Login fehlgeschlagen: ' + error.message);
+    }
+  };
+
   return (
     <div style={{ maxWidth: '400px', margin: 'auto', paddingTop: '2rem' }}>
       <h2>Registrieren</h2>
+
       <form onSubmit={handleSignup}>
         <input
           type="text"
@@ -73,6 +84,14 @@ export default function Signup() {
         <br />
         <button type="submit">Registrieren</button>
       </form>
+
+      <hr style={{ margin: '1.5rem 0' }} />
+
+      <p>Oder registriere dich mit:</p>
+      <button onClick={() => handleOAuthLogin('google')}>Google Login</button>
+      <br />
+      <button onClick={() => handleOAuthLogin('github')}>GitHub Login</button>
+
       {error && <p style={{ color: 'red' }}>{error}</p>}
       {success && <p style={{ color: 'green' }}>{success}</p>}
     </div>
