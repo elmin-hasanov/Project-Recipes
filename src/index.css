@@ -1,0 +1,26 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: 'Inter', sans-serif;
+}
+
+.active {
+  background-color: #f0f0f0;
+  color: black;
+}
+.active:hover {
+  background-color: #e0e0e0;
+  color: rgb(147, 0, 0);
+}
+
+.normal {
+  background-color: #fff;
+  color: #333;
+  border: 1px solid #ccc;
+}
+.normal:hover {
+  background-color: #f9f9f9;
+  color: #000;
+  border: 1px solid #bbb;
+}

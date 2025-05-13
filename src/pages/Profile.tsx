@@ -19,37 +19,36 @@ export default function Profile() {
     }
 
     const fetchProfile = async () => {
-      console.log('Fetching profile für:', user.id);
+      if (!user) return;
 
-      const { data, error } = await supabaseClient
+      const { data: profileData, error } = await supabaseClient
         .from('profiles')
         .select('first_name, last_name, created_at, updated_at')
         .eq('id', user.id)
-        .single();
+        .single<ProfileRow>(); // 💡 Typen explizit angeben
 
       if (error) {
         console.error('Fehler beim Laden des Profils:', error.message, error);
-      } else if (!data) {
+      } else if (!profileData) {
         console.warn('Kein Profil gefunden für User-ID:', user.id);
       } else {
-        setProfile(data);
+        setProfile(profileData);
       }
     };
 
     fetchProfile();
   }, [user, navigate]);
 
-  // ✅ Account löschen
   const handleDeleteAccount = async () => {
     if (!user) return;
-
-    const confirmed = window.confirm(
-      'Bist du sicher, dass du deinen Account dauerhaft löschen möchtest?'
-    );
-    if (!confirmed) return;
+    if (
+      !window.confirm(
+        'Bist du sicher, dass du deinen Account dauerhaft löschen möchtest?'
+      )
+    )
+      return;
 
     try {
-      // 1. Rezepte finden
       const { data: recipes } = await supabaseClient
         .from('recipes')
         .select('id')
@@ -57,21 +56,15 @@ export default function Profile() {
 
       const recipeIds = recipes?.map((r) => r.id) ?? [];
 
-      // 2. Zutaten löschen
       if (recipeIds.length > 0) {
         await supabaseClient
           .from('ingredients')
           .delete()
           .in('recipe_id', recipeIds);
-
-        // 3. Rezepte löschen
         await supabaseClient.from('recipes').delete().eq('user_id', user.id);
       }
 
-      // 4. Profil löschen
       await supabaseClient.from('profiles').delete().eq('id', user.id);
-
-      // 5. Logout + Weiterleitung
       await supabaseClient.auth.signOut();
       alert('Dein Account wurde gelöscht.');
       navigate('/');
@@ -84,7 +77,7 @@ export default function Profile() {
   if (!user || !profile) return <p>Lade Profildaten...</p>;
 
   return (
-    <div style={{ padding: '2rem' }}>
+    <div className="profile-page">
       <h2>Profil</h2>
       <p>
         <strong>E-Mail:</strong> {user.email}
@@ -110,19 +103,9 @@ export default function Profile() {
 
       <EditProfileForm />
 
-      <hr style={{ margin: '2rem 0' }} />
+      <hr className="divider" />
 
-      <button
-        onClick={handleDeleteAccount}
-        style={{
-          backgroundColor: '#dc2626',
-          color: 'white',
-          padding: '0.5rem 1rem',
-          borderRadius: '0.25rem',
-          border: 'none',
-          cursor: 'pointer',
-        }}
-      >
+      <button onClick={handleDeleteAccount} className="delete-account-button">
         Account löschen
       </button>
     </div>

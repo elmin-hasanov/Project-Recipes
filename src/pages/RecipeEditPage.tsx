@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { supabaseClient } from '../lib/supabaseClient';
 import { useUser } from '../contexts/UserContext';
+import { produce } from 'immer';
 import type { Database } from '../types/supabase-types';
 
 type Recipe = Database['public']['Tables']['recipes']['Row'];
@@ -13,37 +14,31 @@ const RecipeEditPage = () => {
   const navigate = useNavigate();
   const { user } = useUser();
 
+  const [loading, setLoading] = useState(true);
   const [recipe, setRecipe] = useState<Recipe | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
   const [ingredients, setIngredients] = useState<Ingredient[]>([]);
-  const [loading, setLoading] = useState(true);
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [servings, setServings] = useState<number>(1);
+  const [servings, setServings] = useState(1);
   const [instructions, setInstructions] = useState('');
-  const [categoryId, setCategoryId] = useState<string>('');
+  const [categoryId, setCategoryId] = useState('');
 
+  // Lade Rezept, Zutaten und Kategorien
   useEffect(() => {
-    const fetchRecipeData = async () => {
-      if (!id || !user) return;
+    if (!id || !user) return;
 
+    const fetchData = async () => {
       const { data: recipeData, error: recipeError } = await supabaseClient
         .from('recipes')
         .select('*')
         .eq('id', id)
         .single();
 
-      if (recipeError || !recipeData) {
-        console.error('Fehler beim Laden:', recipeError?.message);
-        return;
-      }
-
-      if (recipeData.user_id !== user.id) {
-        alert('Du darfst dieses Rezept nicht bearbeiten.');
-        navigate('/rezepte');
-        return;
-      }
+      if (recipeError || !recipeData)
+        return console.error(recipeError?.message);
+      if (recipeData.user_id !== user.id) return navigate('/rezepte');
 
       const { data: ingredientData } = await supabaseClient
         .from('ingredients')
@@ -65,7 +60,7 @@ const RecipeEditPage = () => {
       setLoading(false);
     };
 
-    fetchRecipeData();
+    fetchData();
   }, [id, user, navigate]);
 
   const handleIngredientChange = (
@@ -73,30 +68,38 @@ const RecipeEditPage = () => {
     field: keyof Ingredient,
     value: string | number
   ) => {
-    const updated = [...ingredients];
-    updated[index][field] = value;
-    setIngredients(updated);
+    setIngredients((prev) =>
+      produce(prev, (draft) => {
+        draft[index] = { ...draft[index], [field]: value };
+      })
+    );
   };
 
   const addIngredient = () => {
-    setIngredients([
-      ...ingredients,
-      {
-        id: '',
-        name: '',
-        quantity: 0,
-        unit: '',
-        additional_info: '',
-        recipe_id: id!,
-        created_at: null,
-      },
-    ]);
+    setIngredients((prev) =>
+      produce(prev, (draft) => {
+        draft.push({
+          id: '',
+          name: '',
+          quantity: 0,
+          unit: '',
+          additional_info: '',
+          recipe_id: id!,
+          created_at: null,
+        });
+      })
+    );
   };
 
   const removeIngredient = (index: number) => {
-    setIngredients(ingredients.filter((_, i) => i !== index));
+    setIngredients((prev) =>
+      produce(prev, (draft) => {
+        draft.splice(index, 1);
+      })
+    );
   };
 
+  // Rezept und Zutaten speichern
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!id) return;
@@ -112,19 +115,25 @@ const RecipeEditPage = () => {
       })
       .eq('id', id);
 
-    if (updateError) {
-      alert('Fehler beim Speichern: ' + updateError.message);
-      return;
-    }
+    if (updateError) return alert('Fehler: ' + updateError.message);
 
     await supabaseClient.from('ingredients').delete().eq('recipe_id', id);
+    const insertIngredients = ingredients.map(
+      ({ name, quantity, unit, additional_info }) => ({
+        name,
+        quantity,
+        unit,
+        additional_info,
+        recipe_id: id,
+      })
+    );
 
-    const formattedIngredients = ingredients.map((ing) => ({
-      ...ing,
-      recipe_id: id,
-    }));
+    const { error: insertError } = await supabaseClient
+      .from('ingredients')
+      .insert(insertIngredients);
 
-    await supabaseClient.from('ingredients').insert(formattedIngredients);
+    if (insertError) return alert('Fehler: ' + insertError.message);
+
     navigate(`/rezepte/${id}`);
   };
 
@@ -136,41 +145,37 @@ const RecipeEditPage = () => {
       <h2 className="form-title">Rezept bearbeiten</h2>
 
       <input
-        type="text"
+        className="input"
         value={name}
         onChange={(e) => setName(e.target.value)}
         placeholder="Name"
         required
-        className="input"
       />
-
       <textarea
+        className="textarea"
         value={description}
         onChange={(e) => setDescription(e.target.value)}
         placeholder="Beschreibung"
-        className="textarea"
       />
-
       <input
+        className="input"
         type="number"
         value={servings}
-        onChange={(e) => setServings(Number(e.target.value))}
+        onChange={(e) => setServings(+e.target.value)}
         min={1}
-        className="input"
       />
-
       <textarea
+        className="textarea"
         value={instructions}
         onChange={(e) => setInstructions(e.target.value)}
         placeholder="Zubereitung"
-        className="textarea"
       />
 
       <select
+        className="select"
         value={categoryId}
         onChange={(e) => setCategoryId(e.target.value)}
         required
-        className="select"
       >
         <option value="">Kategorie wählen</option>
         {categories.map((cat) => (
@@ -184,58 +189,51 @@ const RecipeEditPage = () => {
       {ingredients.map((ing, index) => (
         <div key={index} className="ingredient-row">
           <input
-            type="text"
+            className="input"
             placeholder="Name"
             value={ing.name}
             onChange={(e) =>
               handleIngredientChange(index, 'name', e.target.value)
             }
-            className="input"
           />
           <input
+            className="input"
             type="number"
             placeholder="Menge"
-            value={ing.quantity}
+            value={ing.quantity ?? ''}
             onChange={(e) =>
-              handleIngredientChange(
-                index,
-                'quantity',
-                parseFloat(e.target.value)
-              )
+              handleIngredientChange(index, 'quantity', +e.target.value)
             }
-            className="input"
           />
           <input
-            type="text"
+            className="input"
             placeholder="Einheit"
-            value={ing.unit}
+            value={ing.unit || ''}
             onChange={(e) =>
               handleIngredientChange(index, 'unit', e.target.value)
             }
-            className="input"
           />
           <input
-            type="text"
+            className="input"
             placeholder="Zusatzinfo"
             value={ing.additional_info || ''}
             onChange={(e) =>
               handleIngredientChange(index, 'additional_info', e.target.value)
             }
-            className="input"
           />
           <button
             type="button"
-            onClick={() => removeIngredient(index)}
             className="button delete"
+            onClick={() => removeIngredient(index)}
           >
             Entfernen
           </button>
         </div>
       ))}
-      <button type="button" onClick={addIngredient} className="button add">
+
+      <button type="button" className="button add" onClick={addIngredient}>
         Zutat hinzufügen
       </button>
-
       <button type="submit" className="button submit">
         Speichern
       </button>

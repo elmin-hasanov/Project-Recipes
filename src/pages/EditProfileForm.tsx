@@ -1,12 +1,18 @@
 import { useEffect, useState } from 'react';
 import { supabaseClient } from '../lib/supabaseClient';
 import { useUser } from '../contexts/UserContext';
+import { produce } from 'immer';
 
 export default function EditProfileForm() {
   const { user } = useUser();
-  const [firstName, setFirstName] = useState('');
-  const [lastName, setLastName] = useState('');
   const [message, setMessage] = useState('');
+  const [loading, setLoading] = useState(true);
+
+  // Profil-Zustand initialisieren
+  const [profileData, setProfileData] = useState({
+    first_name: '',
+    last_name: '',
+  });
 
   useEffect(() => {
     const fetchProfile = async () => {
@@ -18,30 +24,31 @@ export default function EditProfileForm() {
         .eq('id', user.id)
         .single();
 
-      if (error && error.code === 'PGRST116') {
-        // Kein Profil vorhanden – erstellen
-        const { error: insertError } = await supabaseClient
-          .from('profiles')
-          .insert({ id: user.id });
-
-        if (insertError) {
-          setMessage(
-            '❌ Fehler beim Anlegen des Profils: ' + insertError.message
-          );
-        } else {
-          setFirstName('');
-          setLastName('');
-        }
-      } else if (error) {
-        setMessage('❌ Fehler beim Laden des Profils: ' + error.message);
+      if (error?.code === 'PGRST116' || error?.message.includes('no rows')) {
+        // Profil automatisch anlegen
+        await supabaseClient.from('profiles').insert({ id: user.id });
       } else if (data) {
-        setFirstName(data.first_name ?? '');
-        setLastName(data.last_name ?? '');
+        // Profil-Daten setzen
+        setProfileData({
+          first_name: data.first_name ?? '',
+          last_name: data.last_name ?? '',
+        });
       }
+
+      setLoading(false);
     };
 
     fetchProfile();
   }, [user]);
+
+  // Eingaben aktualisieren mit immer
+  const handleChange = (field: keyof typeof profileData, value: string) => {
+    setProfileData((prev) =>
+      produce(prev, (draft) => {
+        draft[field] = value;
+      })
+    );
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,8 +57,7 @@ export default function EditProfileForm() {
     const { error } = await supabaseClient
       .from('profiles')
       .update({
-        first_name: firstName,
-        last_name: lastName,
+        ...profileData,
         updated_at: new Date().toISOString(),
       })
       .eq('id', user.id);
@@ -63,29 +69,34 @@ export default function EditProfileForm() {
     }
   };
 
+  if (loading) return <p>Profildaten werden geladen...</p>;
+
   return (
-    <form onSubmit={handleSubmit} style={{ marginTop: '2rem' }}>
+    <form onSubmit={handleSubmit} className="edit-profile-form">
       <h3>Profil bearbeiten</h3>
-      <div>
-        <label>Vorname:</label>
+
+      <label>
+        Vorname:
         <input
           type="text"
-          value={firstName}
-          onChange={(e) => setFirstName(e.target.value)}
+          value={profileData.first_name}
+          onChange={(e) => handleChange('first_name', e.target.value)}
           required
         />
-      </div>
-      <div>
-        <label>Nachname:</label>
+      </label>
+
+      <label>
+        Nachname:
         <input
           type="text"
-          value={lastName}
-          onChange={(e) => setLastName(e.target.value)}
+          value={profileData.last_name}
+          onChange={(e) => handleChange('last_name', e.target.value)}
           required
         />
-      </div>
+      </label>
+
       <button type="submit">Speichern</button>
-      {message && <p>{message}</p>}
+      {message && <p className="form-message">{message}</p>}
     </form>
   );
 }

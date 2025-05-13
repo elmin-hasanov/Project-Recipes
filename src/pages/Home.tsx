@@ -1,27 +1,40 @@
 import { useEffect, useState } from 'react';
 import { supabaseClient } from '../lib/supabaseClient';
 import RecipeCard from '../components/RecipeCard';
-import { Recipe } from '../types/supabase-types';
+import type { Database } from '../types/supabase-types';
+
+type Recipe = Database['public']['Tables']['recipes']['Row'];
 
 const Home = () => {
   const [popularRecipes, setPopularRecipes] = useState<Recipe[]>([]);
   const [newRecipes, setNewRecipes] = useState<Recipe[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [searchResults, setSearchResults] = useState<Recipe[]>([]);
 
   useEffect(() => {
     const fetchRecipes = async () => {
-      const { data: popular } = await supabaseClient
+      // Beliebteste Rezepte (nach Bewertung)
+      const { data: popular, error: popularError } = await supabaseClient
         .from('recipes')
         .select('*')
         .order('rating', { ascending: false })
         .limit(3);
 
-      const { data: recent } = await supabaseClient
+      // Neueste Rezepte (nach Datum)
+      const { data: recent, error: recentError } = await supabaseClient
         .from('recipes')
         .select('*')
         .order('created_at', { ascending: false })
         .limit(3);
+
+      if (popularError)
+        console.error(
+          'Fehler beim Laden der beliebtesten Rezepte:',
+          popularError.message
+        );
+      if (recentError)
+        console.error(
+          'Fehler beim Laden der neuesten Rezepte:',
+          recentError.message
+        );
 
       setPopularRecipes(popular || []);
       setNewRecipes(recent || []);
@@ -30,44 +43,25 @@ const Home = () => {
     fetchRecipes();
   }, []);
 
-  const handleSearch = async () => {
-    if (!searchTerm) return;
-    const { data } = await supabaseClient
-      .from('recipes')
-      .select('*')
-      .ilike('name', `%${searchTerm}%`);
-    setSearchResults(data || []);
-  };
-
   return (
-    <div className="flex flex-col-reverse md:flex-row gap-4">
-      <input
-        type="text"
-        placeholder="Rezept suchen..."
-        value={searchTerm}
-        onChange={(e) => setSearchTerm(e.target.value)}
-      />
-      <button onClick={handleSearch}>Suchen</button>
-
-      {searchTerm && searchResults.length === 0 && (
-        <p>Keine Rezepte gefunden.</p>
-      )}
-      {searchTerm &&
-        searchResults.map((r) => <RecipeCard key={r.id} recipe={r} />)}
-
-      {!searchTerm && (
-        <>
-          <h2>Die beliebtesten Rezepte</h2>
-          {popularRecipes.map((r) => (
-            <RecipeCard key={r.id} recipe={r} />
+    <div className="home-page space-y-8">
+      <section>
+        <h2 className="section-title">Die beliebtesten Rezepte</h2>
+        <div className="recipe-grid">
+          {popularRecipes.map((recipe) => (
+            <RecipeCard key={recipe.id} recipe={recipe} />
           ))}
+        </div>
+      </section>
 
-          <h2>Neueste Rezepte</h2>
-          {newRecipes.map((r) => (
-            <RecipeCard key={r.id} recipe={r} />
+      <section>
+        <h2 className="section-title">Neueste Rezepte</h2>
+        <div className="recipe-grid">
+          {newRecipes.map((recipe) => (
+            <RecipeCard key={recipe.id} recipe={recipe} />
           ))}
-        </>
-      )}
+        </div>
+      </section>
     </div>
   );
 };

@@ -88,37 +88,40 @@ export type Database = {
       };
       recipes: {
         Row: {
-          category_id: string;
-          created_at: string;
-          description: string;
           id: string;
-          image_url: string | null;
-          instructions: string;
           name: string;
-          rating: number | null;
+          description: string;
+          instructions: string;
           servings: number;
+          rating: number | null;
+          image_url: string | null;
+          category_id: string;
+          user_id: string; // ✅ hinzugefügt
+          created_at: string;
         };
         Insert: {
-          category_id: string;
-          created_at?: string;
-          description: string;
           id?: string;
-          image_url?: string | null;
-          instructions: string;
           name: string;
-          rating?: number | null;
+          description: string;
+          instructions: string;
           servings: number;
+          rating?: number | null;
+          image_url?: string | null;
+          category_id: string;
+          user_id: string; // ✅ hinzugefügt
+          created_at?: string;
         };
         Update: {
-          category_id?: string;
-          created_at?: string;
-          description?: string;
           id?: string;
-          image_url?: string | null;
-          instructions?: string;
           name?: string;
-          rating?: number | null;
+          description?: string;
+          instructions?: string;
           servings?: number;
+          rating?: number | null;
+          image_url?: string | null;
+          category_id?: string;
+          user_id?: string; // ✅ hinzugefügt
+          created_at?: string;
         };
         Relationships: [
           {
@@ -126,6 +129,13 @@ export type Database = {
             columns: ['category_id'];
             isOneToOne: false;
             referencedRelation: 'categories';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'recipes_user_id_fkey'; // ✅ hinzufügen, falls existiert
+            columns: ['user_id'];
+            isOneToOne: false;
+            referencedRelation: 'profiles';
             referencedColumns: ['id'];
           }
         ];
