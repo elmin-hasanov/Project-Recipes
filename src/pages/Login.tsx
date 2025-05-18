@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabaseClient } from '../lib/supabaseClient';
+import '../pages/Login.css'; // Import your CSS file for styling
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -25,28 +26,25 @@ const Login = () => {
   };
 
   const handleOAuthLogin = async (provider: 'github' | 'google') => {
-    const { error } = await supabaseClient.auth.signInWithOAuth({
-      provider,
-    });
-
+    const { error } = await supabaseClient.auth.signInWithOAuth({ provider });
     if (error) {
       setErrorMessage(`Fehler bei ${provider} Login: ` + error.message);
     }
   };
 
   return (
-    <div className="max-w-md mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-4">Login</h1>
-      {errorMessage && <p className="text-red-500">{errorMessage}</p>}
+    <div className="login-container">
+      <h1 className="login-title">Login</h1>
+      {errorMessage && <p className="login-error">{errorMessage}</p>}
 
-      <form onSubmit={handleLogin} className="space-y-4">
+      <form onSubmit={handleLogin} className="login-form">
         <input
           type="email"
           placeholder="E-Mail"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           required
-          className="w-full p-2 border rounded"
+          className="login-input"
         />
         <input
           type="password"
@@ -54,35 +52,32 @@ const Login = () => {
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           required
-          className="w-full p-2 border rounded"
+          className="login-input"
         />
-        <button
-          type="submit"
-          className="w-full bg-blue-500 text-white p-2 rounded"
-        >
+        <button type="submit" className="login-button">
           Einloggen
         </button>
       </form>
 
-      <hr className="my-6" />
+      <div className="login-divider" />
 
       <button
         onClick={() => handleOAuthLogin('google')}
-        className="w-full bg-red-500 text-white p-2 rounded mb-2"
+        className="oauth-button google"
       >
         Mit Google einloggen
       </button>
 
-      <button
+      {/* <button
         onClick={() => handleOAuthLogin('github')}
-        className="w-full bg-gray-800 text-white p-2 rounded"
+        className="oauth-button github"
       >
         Mit GitHub einloggen
-      </button>
+      </button> */}
 
-      <p className="mt-4">
+      <p className="signup-text">
         Noch kein Konto?{' '}
-        <a href="/signup" className="text-blue-500">
+        <a href="/signup" className="signup-link">
           Registrieren
         </a>
       </p>

@@ -1,0 +1,60 @@
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  margin-top: 2rem;
+}
+
+.heading {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #ffe7d7;
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+}
+
+.group label {
+  font-size: 0.95rem;
+  color: #e0c7b0;
+  margin-bottom: 0.4rem;
+}
+
+.group input {
+  padding: 0.75rem;
+  font-size: 1rem;
+  border: 1px solid #7d5a46;
+  border-radius: 10px;
+  background-color: #2d1507;
+  color: #ffe7d7;
+  transition: border-color 0.2s ease;
+}
+
+.group input:focus {
+  outline: none;
+  border-color: #e9c910;
+  background-color: #3b1a09;
+}
+
+.button {
+  padding: 0.75rem;
+  font-size: 1rem;
+  background-color: #28a745;
+  color: white;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.button:hover {
+  background-color: #218838;
+}
+
+.message {
+  font-size: 0.95rem;
+  margin-top: 0.5rem;
+  color: #f0d6be;
+}

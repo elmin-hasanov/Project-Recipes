@@ -4,6 +4,7 @@ import { supabaseClient } from '../lib/supabaseClient';
 import { useNavigate } from 'react-router-dom';
 import type { Database } from '../types/supabase-types';
 import EditProfileForm from './EditProfileForm';
+import styles from '../pages/Profile.module.css';
 
 type ProfileRow = Database['public']['Tables']['profiles']['Row'];
 
@@ -25,12 +26,10 @@ export default function Profile() {
         .from('profiles')
         .select('first_name, last_name, created_at, updated_at')
         .eq('id', user.id)
-        .single<ProfileRow>(); // 💡 Typen explizit angeben
+        .single<ProfileRow>();
 
       if (error) {
         console.error('Fehler beim Laden des Profils:', error.message, error);
-      } else if (!profileData) {
-        console.warn('Kein Profil gefunden für User-ID:', user.id);
       } else {
         setProfile(profileData);
       }
@@ -77,37 +76,57 @@ export default function Profile() {
   if (!user || !profile) return <p>Lade Profildaten...</p>;
 
   return (
-    <div className="profile-page">
-      <h2>Profil</h2>
-      <p>
-        <strong>E-Mail:</strong> {user.email}
-      </p>
-      <p>
-        <strong>Vorname:</strong> {profile.first_name ?? '-'}
-      </p>
-      <p>
-        <strong>Nachname:</strong> {profile.last_name ?? '-'}
-      </p>
-      <p>
-        <strong>Zuletzt geändert:</strong>{' '}
-        {profile.updated_at
-          ? new Date(profile.updated_at).toLocaleString()
-          : '—'}
-      </p>
-      <p>
-        <strong>Letzter Login:</strong>{' '}
-        {user.last_sign_in_at
-          ? new Date(user.last_sign_in_at).toLocaleString()
-          : '—'}
-      </p>
+    <section className={styles.container}>
+      <h1 className={styles.heading}>Profil</h1>
 
-      <EditProfileForm />
+      <div className={styles.info}>
+        <p>
+          <span className={styles.label}>E-Mail:</span> {user.email}
+        </p>
+        <p>
+          <span className={styles.label}>Vorname:</span>{' '}
+          {profile.first_name ?? '-'}
+        </p>
+        <p>
+          <span className={styles.label}>Nachname:</span>{' '}
+          {profile.last_name ?? '-'}
+        </p>
+        <p>
+          <span className={styles.label}>Zuletzt geändert:</span>{' '}
+          {profile.updated_at
+            ? new Date(profile.updated_at).toLocaleString()
+            : '—'}
+        </p>
+        <p>
+          <span className={styles.label}>Letzter Login:</span>{' '}
+          {user.last_sign_in_at
+            ? new Date(user.last_sign_in_at).toLocaleString()
+            : '—'}
+        </p>
+      </div>
 
-      <hr className="divider" />
+      <div className={styles.formWrapper}>
+        <EditProfileForm />
+      </div>
 
-      <button onClick={handleDeleteAccount} className="delete-account-button">
-        Account löschen
-      </button>
-    </div>
+      <div className={styles.actions}>
+        <button
+          onClick={async () => {
+            await supabaseClient.auth.signOut();
+            navigate('/login');
+          }}
+          className={`${styles.button} ${styles.logout}`}
+        >
+          Abmelden
+        </button>
+
+        <button
+          onClick={handleDeleteAccount}
+          className={`${styles.button} ${styles.delete}`}
+        >
+          Account löschen
+        </button>
+      </div>
+    </section>
   );
 }

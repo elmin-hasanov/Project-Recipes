@@ -1,7 +1,10 @@
 import { useEffect, useState } from 'react';
 import { supabaseClient } from '../lib/supabaseClient';
-import RecipeCard from '../components/RecipeCard';
+import { Link } from 'react-router-dom';
 import type { Database } from '../types/supabase-types';
+
+import styles from './Home.module.css';
+import Hero from '../components/Hero';
 
 type Recipe = Database['public']['Tables']['recipes']['Row'];
 
@@ -11,30 +14,17 @@ const Home = () => {
 
   useEffect(() => {
     const fetchRecipes = async () => {
-      // Beliebteste Rezepte (nach Bewertung)
-      const { data: popular, error: popularError } = await supabaseClient
+      const { data: popular } = await supabaseClient
         .from('recipes')
         .select('*')
         .order('rating', { ascending: false })
         .limit(3);
 
-      // Neueste Rezepte (nach Datum)
-      const { data: recent, error: recentError } = await supabaseClient
+      const { data: recent } = await supabaseClient
         .from('recipes')
         .select('*')
         .order('created_at', { ascending: false })
         .limit(3);
-
-      if (popularError)
-        console.error(
-          'Fehler beim Laden der beliebtesten Rezepte:',
-          popularError.message
-        );
-      if (recentError)
-        console.error(
-          'Fehler beim Laden der neuesten Rezepte:',
-          recentError.message
-        );
 
       setPopularRecipes(popular || []);
       setNewRecipes(recent || []);
@@ -44,25 +34,65 @@ const Home = () => {
   }, []);
 
   return (
-    <div className="home-page space-y-8">
-      <section>
-        <h2 className="section-title">Die beliebtesten Rezepte</h2>
-        <div className="recipe-grid">
-          {popularRecipes.map((recipe) => (
-            <RecipeCard key={recipe.id} recipe={recipe} />
-          ))}
-        </div>
-      </section>
+    <>
+      <Hero />
+      <main className={styles.homePage}>
+        <section>
+          <h2 className={styles.sectionTitle}>Chef’s Picks 🔥</h2>
+          <div className={styles.recipeGrid}>
+            {popularRecipes.map((recipe) => (
+              <div className={styles.recipeCard} key={recipe.id}>
+                <div className={styles.imageContainer}>
+                  <img
+                    src={recipe.image_url ?? undefined}
+                    alt={recipe.name}
+                    className={styles.recipeImage}
+                  />
+                  <div className={styles.overlay}>
+                    <h2 className={styles.recipeTitle}>{recipe.name}</h2>
+                    <p className={styles.recipeDescription}>
+                      {recipe.description}
+                    </p>
+                    <Link
+                      to={`/rezepte/${recipe.id}`}
+                      className={styles.detailsButton}
+                    >
+                      Zum Rezept
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
 
-      <section>
-        <h2 className="section-title">Neueste Rezepte</h2>
-        <div className="recipe-grid">
-          {newRecipes.map((recipe) => (
-            <RecipeCard key={recipe.id} recipe={recipe} />
-          ))}
-        </div>
-      </section>
-    </div>
+        <section>
+          <h2 className={styles.sectionTitle}>Fresh from the Kitchen 🍳</h2>
+          <div className={styles.recipeGrid}>
+            {newRecipes.map((recipe) => (
+              <div className={styles.recipeCard} key={recipe.id}>
+                <div className={styles.imageContainer}>
+                  <img
+                    src={recipe.image_url ?? undefined}
+                    alt={recipe.name}
+                    className={styles.recipeImage}
+                  />
+                  <div className={styles.overlay}>
+                    <h2 className={styles.recipeTitle}>{recipe.name}</h2>
+                    <Link
+                      to={`/rezepte/${recipe.id}`}
+                      className={styles.detailsButton}
+                    >
+                      Zum Rezept
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      </main>
+    </>
   );
 };
 

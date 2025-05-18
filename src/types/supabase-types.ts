@@ -266,3 +266,9 @@ export const Constants = {
     Enums: {},
   },
 } as const;
+
+// 🔧 Eigene praktische Exporte ergänzen
+export type Recipe = Database['public']['Tables']['recipes']['Row'];
+export type Ingredient = Database['public']['Tables']['ingredients']['Row'];
+export type Profile = Database['public']['Tables']['profiles']['Row'];
+export type Category = Database['public']['Tables']['categories']['Row'];

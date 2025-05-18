@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { supabaseClient } from '../lib/supabaseClient';
 import { useUser } from '../contexts/UserContext';
+import styles from './RecipeCreatePage.module.css';
 
 interface Category {
   id: string;
@@ -15,8 +16,32 @@ interface Ingredient {
   additional_info?: string;
 }
 
+const uploadRecipeImage = async (
+  file: File,
+  userId: string
+): Promise<string> => {
+  const filePath = `recipes/${userId}-${Date.now()}-${file.name}`;
+
+  const { error } = await supabaseClient.storage
+    .from('recipe-images')
+    .upload(filePath, file, {
+      contentType: file.type,
+      upsert: true,
+    });
+
+  if (error) {
+    console.error('Upload-Fehler:', error);
+    throw new Error(error.message || 'Unbekannter Upload-Fehler');
+  }
+
+  const { data } = supabaseClient.storage
+    .from('recipe-images')
+    .getPublicUrl(filePath);
+
+  return data.publicUrl;
+};
+
 const RecipeCreatePage = () => {
-  const { id: recipeId } = useParams();
   const navigate = useNavigate();
   const { user } = useUser();
 
@@ -29,50 +54,17 @@ const RecipeCreatePage = () => {
   const [ingredients, setIngredients] = useState<Ingredient[]>([
     { name: '', quantity: 0, unit: '', additional_info: '' },
   ]);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imageUrl, setImageUrl] = useState('');
 
   useEffect(() => {
-    const fetchCategories = async () => {
-      const { data } = await supabaseClient.from('categories').select('*');
-      if (data) setCategories(data);
-    };
-    fetchCategories();
+    supabaseClient
+      .from('categories')
+      .select('*')
+      .then(({ data }) => {
+        if (data) setCategories(data);
+      });
   }, []);
-
-  useEffect(() => {
-    if (!recipeId) return;
-    const fetchRecipeAndIngredients = async () => {
-      const { data: recipe } = await supabaseClient
-        .from('recipes')
-        .select('*')
-        .eq('id', recipeId)
-        .single();
-
-      const { data: ings } = await supabaseClient
-        .from('ingredients')
-        .select('*')
-        .eq('recipe_id', recipeId);
-
-      if (recipe) {
-        if (recipe.user_id !== user?.id) {
-          alert('Du darfst dieses Rezept nicht bearbeiten.');
-          navigate('/');
-          return;
-        }
-
-        setName(recipe.name);
-        setDescription(recipe.description);
-        setServings(recipe.servings);
-        setInstructions(recipe.instructions);
-        setCategoryId(recipe.category_id);
-      }
-
-      if (ings) {
-        setIngredients(ings);
-      }
-    };
-
-    fetchRecipeAndIngredients();
-  }, [recipeId, user, navigate]);
 
   const handleIngredientChange = (
     index: number,
@@ -80,7 +72,7 @@ const RecipeCreatePage = () => {
     value: string | number
   ) => {
     const updated = [...ingredients];
-    updated[index][field] = value;
+    updated[index] = { ...updated[index], [field]: value };
     setIngredients(updated);
   };
 
@@ -97,148 +89,186 @@ const RecipeCreatePage = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user?.id) return alert('Benutzer nicht eingeloggt.');
 
-    let recipe;
-    if (recipeId) {
-      const { data, error } = await supabaseClient
-        .from('recipes')
-        .update({
+    let finalImageUrl = imageUrl;
+
+    if (imageFile) {
+      try {
+        finalImageUrl = await uploadRecipeImage(imageFile, user.id);
+        setImageUrl(finalImageUrl);
+      } catch (err) {
+        alert('Bild-Upload fehlgeschlagen: ' + err);
+        return;
+      }
+    }
+
+    const { data: recipe, error } = await supabaseClient
+      .from('recipes')
+      .insert([
+        {
           name,
           description,
           servings,
           instructions,
           category_id: categoryId,
-        })
-        .eq('id', recipeId)
-        .select()
-        .single();
+          user_id: user.id,
+          image_url: finalImageUrl || null,
+        },
+      ])
+      .select()
+      .single();
 
-      if (error) return;
-      recipe = data;
+    if (error || !recipe) return alert('Fehler beim Speichern.');
 
-      await supabaseClient
-        .from('ingredients')
-        .delete()
-        .eq('recipe_id', recipeId);
-    } else {
-      const { data, error } = await supabaseClient
-        .from('recipes')
-        .insert([
-          {
-            name,
-            description,
-            servings,
-            instructions,
-            category_id: categoryId,
-            user_id: user?.id, // neu
-          },
-        ])
-        .select()
-        .single();
+    const formattedIngredients = ingredients.map((ing) => ({
+      ...ing,
+      recipe_id: recipe.id,
+    }));
 
-      if (error) return;
-      recipe = data;
-    }
-
-    if (recipe) {
-      const formattedIngredients = ingredients.map((ing) => ({
-        ...ing,
-        recipe_id: recipe.id,
-      }));
-      await supabaseClient.from('ingredients').insert(formattedIngredients);
-      navigate(`/rezepte/${recipe.id}`);
-    }
+    await supabaseClient.from('ingredients').insert(formattedIngredients);
+    navigate(`/rezepte/${recipe.id}`);
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 max-w-xl mx-auto p-4">
-      <input
-        type="text"
-        value={name}
-        onChange={(e) => setName(e.target.value)}
-        placeholder="Name"
-        required
-      />
-      <textarea
-        value={description}
-        onChange={(e) => setDescription(e.target.value)}
-        placeholder="Beschreibung"
-      />
-      <input
-        type="number"
-        value={servings}
-        onChange={(e) => setServings(Number(e.target.value))}
-        min={1}
-      />
-      <textarea
-        value={instructions}
-        onChange={(e) => setInstructions(e.target.value)}
-        placeholder="Anleitung"
-      />
+    <section className={styles.container}>
+      <h2 className={styles.heading}>Rezept erstellen</h2>
 
-      <select
-        value={categoryId}
-        onChange={(e) => setCategoryId(e.target.value)}
-        required
-      >
-        <option value="">Kategorie wählen</option>
-        {categories.map((cat) => (
-          <option key={cat.id} value={cat.id}>
-            {cat.name}
-          </option>
+      <form onSubmit={handleSubmit} className={styles.form}>
+        <input
+          type="text"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Name"
+          className={styles.input}
+          required
+        />
+
+        <textarea
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder="Beschreibung"
+          className={styles.textarea}
+        />
+
+        <input
+          type="number"
+          value={servings}
+          onChange={(e) => setServings(Number(e.target.value) || 1)}
+          min={1}
+          className={styles.input}
+        />
+
+        <textarea
+          value={instructions}
+          onChange={(e) => setInstructions(e.target.value)}
+          placeholder="Anleitung"
+          className={styles.textarea}
+        />
+
+        <select
+          value={categoryId}
+          onChange={(e) => setCategoryId(e.target.value)}
+          required
+          className={styles.select}
+        >
+          <option value="">Kategorie wählen</option>
+          {categories.map((cat) => (
+            <option key={cat.id} value={cat.id}>
+              {cat.name}
+            </option>
+          ))}
+        </select>
+
+        <label htmlFor="image" className={styles.fileLabel}>
+          📷 Bild hinzufügen
+        </label>
+        <input
+          id="image"
+          type="file"
+          accept="image/*"
+          className={styles.fileInput}
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file) {
+              setImageFile(file);
+              setImageUrl(URL.createObjectURL(file)); // lokale Vorschau
+            }
+          }}
+        />
+
+        {imageUrl && (
+          <img src={imageUrl} alt="Vorschau" className={styles.imagePreview} />
+        )}
+
+        <h4>Zutaten</h4>
+        {ingredients.map((ing, index) => (
+          <div key={index} className={styles.ingredientBox}>
+            <div className={styles.ingredientGrid}>
+              <input
+                type="text"
+                placeholder="Name"
+                value={ing.name}
+                onChange={(e) =>
+                  handleIngredientChange(index, 'name', e.target.value)
+                }
+                className={styles.input}
+              />
+              <input
+                type="text"
+                placeholder="Menge"
+                value={ing.quantity ?? ''}
+                onChange={(e) =>
+                  handleIngredientChange(
+                    index,
+                    'quantity',
+                    parseFloat(e.target.value) || 0
+                  )
+                }
+                className={styles.input}
+              />
+              <input
+                type="text"
+                placeholder="Einheit"
+                value={ing.unit}
+                onChange={(e) =>
+                  handleIngredientChange(index, 'unit', e.target.value)
+                }
+                className={styles.input}
+              />
+              <input
+                type="text"
+                placeholder="Zusatzinfo"
+                value={ing.additional_info || ''}
+                onChange={(e) =>
+                  handleIngredientChange(
+                    index,
+                    'additional_info',
+                    e.target.value
+                  )
+                }
+                className={styles.input}
+              />
+              <button
+                type="button"
+                onClick={() => removeIngredient(index)}
+                className={styles.removeButton}
+              >
+                Entfernen
+              </button>
+            </div>
+          </div>
         ))}
-      </select>
 
-      <h4>Zutaten</h4>
-      {ingredients.map((ing, index) => (
-        <div key={index} className="border p-2 rounded space-y-2">
-          <input
-            type="text"
-            placeholder="Name"
-            value={ing.name}
-            onChange={(e) =>
-              handleIngredientChange(index, 'name', e.target.value)
-            }
-          />
-          <input
-            type="number"
-            placeholder="Menge"
-            value={ing.quantity}
-            onChange={(e) =>
-              handleIngredientChange(
-                index,
-                'quantity',
-                parseFloat(e.target.value)
-              )
-            }
-          />
-          <input
-            type="text"
-            placeholder="Einheit"
-            value={ing.unit}
-            onChange={(e) =>
-              handleIngredientChange(index, 'unit', e.target.value)
-            }
-          />
-          <input
-            type="text"
-            placeholder="Zusatzinfo"
-            value={ing.additional_info || ''}
-            onChange={(e) =>
-              handleIngredientChange(index, 'additional_info', e.target.value)
-            }
-          />
-          <button type="button" onClick={() => removeIngredient(index)}>
-            Entfernen
-          </button>
-        </div>
-      ))}
-      <button type="button" onClick={addIngredient}>
-        Zutat hinzufügen
-      </button>
+        <button type="button" onClick={addIngredient} className={styles.button}>
+          ➕ Zutat hinzufügen
+        </button>
 
-      <button type="submit">Speichern</button>
-    </form>
+        <button type="submit" className={styles.submitButton}>
+          🍽️ Rezept hochladen
+        </button>
+      </form>
+    </section>
   );
 };
 

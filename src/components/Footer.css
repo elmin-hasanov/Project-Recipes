@@ -2,11 +2,24 @@
   display: flex;
   align-items: center;
   padding: 1rem;
-  background-color: #ffdb63;
-  justify-content: space-between;
+  background-color: #220d00;
+  gap: 1rem;
   a {
     text-decoration: none;
-    color: #333;
+    color: #c9c9c99b;
     font-size: 0.8rem;
+    font-family: 'Inter', sans-serif;
+    font-weight: 800;
+    transition: color 0.2s ease;
+    &:hover {
+      color: #e07a5f;
+    }
+  }
+  p {
+    color: #c9c9c99b;
+    font-size: 0.8rem;
+    font-family: 'Inter', sans-serif;
+    font-weight: 100;
+    font-style: italic;
   }
 }

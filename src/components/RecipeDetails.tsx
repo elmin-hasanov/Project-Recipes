@@ -1,24 +1,27 @@
 import { useNavigate, useParams } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { supabaseClient } from '../lib/supabaseClient';
-import { Recipe, Ingredient } from '../types/supabase-types';
 import { useUser } from '../contexts/UserContext';
+import styles from './RecipeDetails.module.css';
+
+import type {
+  Recipe,
+  Ingredient,
+  Profile,
+  Category,
+} from '../types/supabase-types';
 
 interface FullRecipe extends Recipe {
   ingredients: Ingredient[];
-  categories: { name: string } | null;
-  profiles: {
-    id: string;
-    first_name: string | null;
-    last_name: string | null;
-  } | null;
+  categories: Category | null;
+  profiles: Profile | null;
 }
 
 const RecipeDetails = () => {
   const { id } = useParams<{ id: string }>();
   const [recipe, setRecipe] = useState<FullRecipe | null>(null);
+  const { user } = useUser();
   const navigate = useNavigate();
-  const { user } = useUser(); // aktueller User
 
   useEffect(() => {
     const fetchRecipe = async () => {
@@ -28,11 +31,32 @@ const RecipeDetails = () => {
         .from('recipes')
         .select(
           `
-      *,
-      ingredients (*),
-      categories (name),
-      profiles (first_name, last_name)
-    `
+          id,
+          name,
+          description,
+          instructions,
+          servings,
+          rating,
+          image_url,
+          user_id,
+          created_at,
+          ingredients (
+            id,
+            name,
+            quantity,
+            unit,
+            additional_info
+          ),
+          categories (
+            id,
+            name
+          ),
+          profiles (
+            id,
+            first_name,
+            last_name
+          )
+        `
         )
         .eq('id', id)
         .single();
@@ -40,7 +64,7 @@ const RecipeDetails = () => {
       if (error) {
         console.error('Fehler beim Laden des Rezepts:', error);
       } else {
-        setRecipe(data);
+        setRecipe(data as FullRecipe);
       }
     };
 
@@ -70,57 +94,60 @@ const RecipeDetails = () => {
 
   if (!recipe) return <p>Lade Rezept...</p>;
 
-  const isOwner = user && recipe.user_id === user.id;
+  const isOwner = user?.id === recipe.user_id;
 
   return (
-    <div className="p-4">
-      <h1 className="text-2xl font-bold mb-2">{recipe.name}</h1>
+    <div className={styles.container}>
+      <h1 className={styles.title}>{recipe.name}</h1>
 
       {recipe.image_url && (
         <img
           src={recipe.image_url}
           alt={recipe.name}
-          className="w-full max-w-md mb-4 rounded"
+          className={styles.image}
         />
       )}
 
-      <p className="mb-2">{recipe.description}</p>
-      <p className="mb-2">Bewertung: {recipe.rating ?? 'Keine Bewertung'}/5</p>
-      <p className="mb-2">
+      <p className={styles.meta}>{recipe.description}</p>
+      <p className={styles.meta}>Portionen: {recipe.servings}</p>
+      <p className={styles.meta}>
+        Bewertung: {recipe.rating ?? 'Keine Bewertung'}/5
+      </p>
+      <p className={styles.meta}>
         Kategorie: {recipe.categories?.name ?? 'Unbekannt'}
       </p>
 
-      <h3 className="mt-4 font-semibold">Zutaten</h3>
-      <ul className="list-disc pl-5">
+      <h2 className={styles.sectionTitle}>Zutaten</h2>
+      <ul className={styles.ingredientList}>
         {recipe.ingredients?.map((ing) => (
           <li key={ing.id}>
-            {ing.quantity} {ing.unit} {ing.name}{' '}
-            {ing.additional_info && `(${ing.additional_info})`}
+            {ing.quantity ?? '?'} {ing.unit ?? ''} {ing.name}
+            {ing.additional_info && ` (${ing.additional_info})`}
           </li>
         ))}
       </ul>
 
-      <h3 className="mt-4 font-semibold">Zubereitung</h3>
-      <p>{recipe.instructions}</p>
+      <h2 className={styles.sectionTitle}>Zubereitung</h2>
+      <p className={styles.instructions}>{recipe.instructions}</p>
 
       {recipe.profiles && (
-        <p className="mt-4">
+        <p className={styles.creator}>
           <strong>Erstellt von:</strong> {recipe.profiles.first_name ?? ''}{' '}
           {recipe.profiles.last_name ?? ''}
         </p>
       )}
 
       {isOwner && (
-        <div className="mt-6 flex gap-4">
+        <div className={styles.actions}>
           <button
             onClick={() => navigate(`/rezepte/${id}/bearbeiten`)}
-            className="px-4 py-2 bg-blue-600 text-white rounded"
+            className={`${styles.button} ${styles.editButton}`}
           >
             Bearbeiten
           </button>
           <button
             onClick={handleDelete}
-            className="px-4 py-2 bg-red-600 text-white rounded"
+            className={`${styles.button} ${styles.deleteButton}`}
           >
             Löschen
           </button>
