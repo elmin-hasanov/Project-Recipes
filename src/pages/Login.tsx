@@ -1,13 +1,22 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from 'react';
+import { useNavigate, Link } from 'react-router-dom';
 import { supabaseClient } from '../lib/supabaseClient';
-import '../pages/Login.css'; // Import your CSS file for styling
+import { useUser } from '../contexts/UserContext';
+import '../pages/Login.css';
 
 const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const navigate = useNavigate();
+
+  const { user, loading } = useUser();
+
+  useEffect(() => {
+    if (user && !loading) {
+      navigate('/');
+    }
+  }, [user, loading]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -19,14 +28,19 @@ const Login = () => {
     });
 
     if (error) {
+      setPassword('');
       setErrorMessage('Login fehlgeschlagen: ' + error.message);
-    } else {
-      navigate('/');
     }
   };
 
-  const handleOAuthLogin = async (provider: 'github' | 'google') => {
-    const { error } = await supabaseClient.auth.signInWithOAuth({ provider });
+  const handleOAuthLogin = async (provider: 'google' | 'github') => {
+    const { error } = await supabaseClient.auth.signInWithOAuth({
+      provider,
+      options: {
+        redirectTo: window.location.origin,
+      },
+    });
+
     if (error) {
       setErrorMessage(`Fehler bei ${provider} Login: ` + error.message);
     }
@@ -68,18 +82,11 @@ const Login = () => {
         Mit Google einloggen
       </button>
 
-      {/* <button
-        onClick={() => handleOAuthLogin('github')}
-        className="oauth-button github"
-      >
-        Mit GitHub einloggen
-      </button> */}
-
       <p className="signup-text">
         Noch kein Konto?{' '}
-        <a href="/signup" className="signup-link">
+        <Link to="/signup" className="signup-link">
           Registrieren
-        </a>
+        </Link>
       </p>
     </div>
   );
